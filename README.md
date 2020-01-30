@@ -68,6 +68,10 @@ This can be changed in the web interface after logging in. You will need to add 
 For more information on this take a look at the "Create certificates using CFSSL" section on
 [here](https://www.howtoforge.com/tutorial/integration-of-cfssl-with-the-lemur-certificate-manager/).
 
+## Building the Container
+
+If you wish to build this yourself, you will need to pull CFSSL for the intermediate container.
+
 ## Info
 
 * Shell access whilst the container is running: `docker exec -it lemur /bin/bash`
