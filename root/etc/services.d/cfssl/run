@@ -1,0 +1,3 @@
+#!/usr/bin/with-contenv bash
+
+exec cfssl serve -address 0.0.0.0 -ca /config/cfssl/ca/ca.pem -ca-key /config/cfssl/ca/ca-key.pem -responder=/config/cfssl/ocsp/ocsp.pem -responder-key=/config/cfssl/ocsp/ocsp-key.pem -config /config/cfssl/cfssl_config.json -db-config /config/cfssl/cfssl_db_config.json -port 8888

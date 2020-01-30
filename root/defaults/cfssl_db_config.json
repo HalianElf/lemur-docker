@@ -1,0 +1,1 @@
+{"driver":"postgres","data_source":"postgresql://lemur:lemur@localhost:5432/cfssl?sslmode=disable"}

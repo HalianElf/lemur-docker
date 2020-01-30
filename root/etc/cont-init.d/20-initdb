@@ -1,0 +1,67 @@
+#!/usr/bin/with-contenv bash
+
+set -e
+
+# set some folders and permissions
+mkdir -p "$PGDATA" /config/lemur
+chown abc:abc /data /config/lemur
+
+mkdir -p /run/postgresql /var/log/postgresql
+chown -R abc:abc /run/postgresql /var/log/postgresql /app
+
+set_listen_addresses() {
+    sedEscapedValue="$(echo "*" | sed 's/[\/&]/\\&/g')"
+    sed -ri "s/^#?(listen_addresses\\s*=\\s*)\\S+/\\1'$sedEscapedValue'/" "$PGDATA/postgresql.conf"
+}
+
+[[ ! -s /config/lemur/lemur.conf.py ]] && cp /defaults/lemur.conf.py /config/lemur/lemur.conf.py
+[[ ! -s /config/.version ]] && cp /defaults/.version /config/.version
+
+VERSION=$(cat /config/.version)
+
+# initialise empty database structure and change temporary ownership config files
+if [ ! -s "$PGDATA/PG_VERSION" ]; then
+    chown -R abc:abc /data
+
+    echo "Initializing empty databases..."
+    s6-setuidgid abc initdb >/dev/null 2>&1
+
+    echo "local   all    all    trust" >> "$PGDATA/pg_hba.conf"
+    echo "host all  all    0.0.0.0/0  md5" >> "$PGDATA/pg_hba.conf"
+    set_listen_addresses ''
+
+    s6-setuidgid abc pg_ctl -D "$PGDATA" -o "-c autovacuum=off -c listen_addresses='localhost'" -w start
+
+    echo "Creating lemurdb..."
+    s6-setuidgid abc createdb lemur >/dev/null 2>&1
+    s6-setuidgid abc createdb cfssl >/dev/null 2>&1
+    echo "Creating the lemur user..."
+    s6-setuidgid abc psql -d lemur --command "CREATE USER lemur WITH SUPERUSER PASSWORD 'lemur';" >/dev/null 2>&1
+    s6-setuidgid abc psql -d lemur --command "GRANT ALL PRIVILEGES ON DATABASE lemur to lemur;" >/dev/null 2>&1
+    s6-setuidgid abc psql -d lemur --command "GRANT ALL PRIVILEGES ON DATABASE cfssl to lemur;" >/dev/null 2>&1
+    s6-setuidgid abc psql -d lemur --command "ALTER ROLE lemur SUPERUSER;" >/dev/null 2>&1
+    sleep 5s
+    cd /app/lemur
+    echo "Initializing lemurdb..."
+    lemur -c /config/lemur/lemur.conf.py init -p password
+    echo "Initializing cfssldb..."
+    s6-setuidgid abc psql cfssl < /defaults/cfssl.sql
+
+    s6-setuidgid abc pg_ctl -D "$PGDATA" -m fast -w stop
+
+    set_listen_addresses '*'
+    sleep 1s
+elif [ $VERSION != 1.0 ]; then
+    echo "Applying lemurdb upgrades..."
+    cd /app/lemur
+    s6-setuidgid abc pg_ctl -D "$PGDATA" -o "-c autovacuum=off -c listen_addresses='localhost'" -w start
+    lemur -c /config/lemur/lemur.conf.py db upgrade
+    s6-setuidgid abc pg_ctl -D "$PGDATA" -m fast -w stop
+    echo "1.0" > /config/.version
+    sleep 1s
+fi
+
+mkdir -p "$PGCONF"
+[[ ! -f "$PGCONF"/postgresql.conf ]] && cp "$PGDATA"/postgresql.conf "$PGCONF"/postgresql.conf
+chown abc:abc "$PGCONF"/postgresql.conf
+chmod 666 "$PGCONF"/postgresql.conf

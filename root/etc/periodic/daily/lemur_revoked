@@ -1,0 +1,9 @@
+#!/usr/bin/with-contenv bash
+
+# Dump OSCP and restart service
+cfssl ocsprefresh -db-config /config/cfssl/cfssl_db_config.json -responder /config/cfssl/ocsp/ocsp.pem -responder-key /config/cfssl/ocsp/ocsp-key.pem -ca /config/cfssl/ca/ca.pem
+cfssl ocspdump -db-config /config/cfssl/cfssl_db_config.json > /config/cfssl/ocspdump.txt
+s6-svc -r /var/run/s6/services/cfssl_ocsp
+
+# Check for Revoked
+lemur -c /config/lemur/lemur.conf.py certificate check_revoked

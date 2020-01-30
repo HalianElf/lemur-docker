@@ -1,0 +1,3 @@
+#!/usr/bin/with-contenv bash
+
+lemur -c /config/lemur/lemur.conf.py source sync -s all

@@ -1,0 +1,3 @@
+#!/usr/bin/with-contenv bash
+
+exec cfssl ocspserve -address 0.0.0.0 -port=8889 -responses=/config/cfssl/ocspdump.txt

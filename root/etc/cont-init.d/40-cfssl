@@ -1,0 +1,52 @@
+#!/usr/bin/with-contenv bash
+
+mkdir -p /config/cfssl
+cp /defaults/root_ca.json.tmpl /defaults/intermediate_ca.json.tmpl /defaults/ocsp_cert.json.tmpl /config/cfssl/
+[[ ! -s /config/cfssl/root_to_intermediate_ca.json ]] && cp /defaults/root_to_intermediate_ca.json /config/cfssl/root_to_intermediate_ca.json
+[[ ! -s /config/cfssl/cfssl_config.json ]] && cp /defaults/cfssl_config.json /config/cfssl/cfssl_config.json
+[[ ! -s /config/cfssl/cfssl_db_config.json ]] && cp /defaults/cfssl_db_config.json /config/cfssl/cfssl_db_config.json
+[[ ! -s /config/cfssl/ocspdump.txt ]] && touch /config/cfssl/ocspdump.txt
+
+if [ ! -s /config/cfssl/root_ca.json ] && [ ! -s /config/cfssl/root/ca.pem ]; then
+    echo "Edit and save the Root CA template to root_ca.json and optionally the Intermediate to intermediate_ca.json"
+fi
+
+if [ -s /config/cfssl/root_ca.json ] && [ ! -s /config/cfssl/root/ca.pem ]; then
+    echo "Generating Root CA..."
+    mkdir -p /config/cfssl/root
+    cd /config/cfssl/root
+    cfssl gencert -initca /config/cfssl/root_ca.json | cfssljson -bare ca
+    echo 'CFSSL_ROOT = """' >> /config/lemur/lemur.conf.py
+    cat ca.pem >> /config/lemur/lemur.conf.py
+    echo '"""' >> /config/lemur/lemur.conf.py
+    cp ca.pem /usr/local/share/ca-certificates/root_ca.pem
+    cd /config/cfssl/
+    ln -s root ca
+    update-ca-certificates
+fi
+
+if [ -s /config/cfssl/intermediate_ca.json ] && [ ! -s /config/cfssl/intermediate/ca.pem ]; then
+    echo "Generating Intermediate CA..."
+    mkdir -p /config/cfssl/intermediate
+    cd /config/cfssl/intermediate
+    cfssl gencert -initca /config/cfssl/intermediate_ca.json | cfssljson -bare ca
+    cfssl sign -ca /config/cfssl/root/ca.pem -ca-key /config/cfssl/root/ca-key.pem -config /config/cfssl/root_to_intermediate_ca.json /config/cfssl/intermediate/ca.csr | cfssljson -bare ca
+    echo 'CFSSL_INTERMEDIATE = """' >> /config/lemur/lemur.conf.py
+    cat ca.pem >> /config/lemur/lemur.conf.py
+    echo '"""' >> /config/lemur/lemur.conf.py
+    cp ca.pem /usr/local/share/ca-certificates/int_ca.pem
+    cd /config/cfssl/
+    unlink /config/cfssl/ca
+    ln -s intermediate ca
+    update-ca-certificates
+fi
+
+if [ -s /config/cfssl/ocsp_cert.json ] && [ ! -s /config/cfssl/ocsp/ocsp.pem ] && [ -s /config/cfssl/ca/ca.pem ]; then
+    echo "Generating OCSP Server Certificate..."
+    echo "NOTE: If you add an Intermediate at a later time, delete the ocsp.pem to resign it against the newly created intermediate."
+    mkdir -p /config/cfssl/ocsp
+    cd /config/cfssl/ocsp
+    cfssl gencert -ca /config/cfssl/ca/ca.pem -ca-key /config/cfssl/ca/ca-key.pem -config /config/cfssl/cfssl_config.json -profile="ocsp" /config/cfssl/ocsp_cert.json | cfssljson -bare ocsp
+fi
+
+chown -R abc:abc /config/cfssl/
