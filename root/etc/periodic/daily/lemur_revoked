@@ -5,5 +5,9 @@ cfssl ocsprefresh -db-config /config/cfssl/cfssl_db_config.json -responder /conf
 cfssl ocspdump -db-config /config/cfssl/cfssl_db_config.json > /config/cfssl/ocspdump.txt
 s6-svc -r /var/run/s6/services/cfssl_ocsp
 
+# Get revoked serials and generate CRL
+psql -t -U lemur -d cfssl -c "SELECT encode(serial_number::bytea, 'escape') FROM certificates WHERE reason!=0" | sed -e 's/^[ \t]*//' > /config/cfssl/revoked.txt
+cfssl gencrl /config/cfssl/revoked.txt /config/cfssl/ca/ca.pem /config/cfssl/ca/ca-key.pem | base64 -d | openssl crl -inform DER -out /config/cfssl/crl/ca.crl
+
 # Check for Revoked
 lemur -c /config/lemur/lemur.conf.py certificate check_revoked

@@ -1,6 +1,6 @@
 #!/usr/bin/with-contenv bash
 
-mkdir -p /config/cfssl
+mkdir -p /config/cfssl /config/cfssl/crl
 cp /defaults/root_ca.json.tmpl /defaults/intermediate_ca.json.tmpl /defaults/ocsp_cert.json.tmpl /config/cfssl/
 [[ ! -s /config/cfssl/root_to_intermediate_ca.json ]] && cp /defaults/root_to_intermediate_ca.json /config/cfssl/root_to_intermediate_ca.json
 [[ ! -s /config/cfssl/cfssl_config.json ]] && cp /defaults/cfssl_config.json /config/cfssl/cfssl_config.json

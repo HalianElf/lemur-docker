@@ -1,8 +1,8 @@
 {
     "signing": {
         "default": {
-            "ocsp_url": "http://localhost:8889",
-            "crl_url": "http://localhost:8888/crl",
+            "ocsp_url": "http://localhost/ocsp",
+            "crl_url": "http://localhost/ca.crl",
             "expiry": "26280h",
             "usages": [
                 "signing",
